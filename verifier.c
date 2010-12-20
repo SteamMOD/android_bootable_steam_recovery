@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "common.h"
+#include "ui.h"
 #include "verifier.h"
 
 #include "mincrypt/rsa.h"

@@ -2,7 +2,7 @@
 
 #include <cutils/properties.h>
 
-int setprop_main(int argc, char *argv[])
+int steam_setprop_main(int argc, char *argv[])
 {
     if(argc != 3) {
         fprintf(stderr,"usage: setprop <key> <value>\n");

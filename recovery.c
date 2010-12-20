@@ -30,18 +30,21 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include "oem.h"
 #include "bootloader.h"
-#include "common.h"
+#include "ui.h"
 #include "cutils/properties.h"
 #include "install.h"
 #include "minui/minui.h"
 #include "minzip/DirUtil.h"
 #include "roots.h"
-#include "recovery_ui.h"
+#include "device.h"
+#include "locale.h"
+#include "config.h"
 
 #include "extendedcommands.h"
 #include "commands.h"
-#include "lagfixutils.h"
+#include "steamext.h"
 
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
@@ -51,13 +54,11 @@ static const struct option OPTIONS[] = {
   { NULL, 0, NULL, 0 },
 };
 
-static int allow_display_toggle = 1;
-
 static const char *COMMAND_FILE = "CACHE:recovery/command";
 static const char *INTENT_FILE = "CACHE:recovery/intent";
 static const char *LOG_FILE = "CACHE:recovery/log";
 static const char *SDCARD_PACKAGE_FILE = "SDCARD:update.zip";
-static const char *TEMPORARY_LOG_FILE = "/tmp/recovery.log";
+char TEMPORARY_LOG_FILE[255] = "/tmp/recovery.log";
 
 /*
  * The recovery tool communicates with the main system through /cache files.
@@ -175,10 +176,11 @@ check_and_fclose(FILE *fp, const char *name) {
 //   - the actual command line
 //   - the bootloader control block (one per line, after "recovery")
 //   - the contents of COMMAND_FILE (one per line)
-static void
+static int
 get_args(int *argc, char ***argv) {
     struct bootloader_message boot;
     memset(&boot, 0, sizeof(boot));
+    int use_command = 0;
 #ifndef BOARD_HAS_NO_MISC_PARTITION
     get_bootloader_message(&boot);  // this may fail, leaving a zeroed structure
 #endif
@@ -226,6 +228,7 @@ get_args(int *argc, char ***argv) {
 
             check_and_fclose(fp, COMMAND_FILE);
             LOGI("Got arguments from %s\n", COMMAND_FILE);
+            use_command = 1;
         }
     }
 
@@ -241,6 +244,7 @@ get_args(int *argc, char ***argv) {
 #ifndef BOARD_HAS_NO_MISC_PARTITION
     set_bootloader_message(&boot);
 #endif
+    return use_command;
 }
 
 #ifndef BOARD_HAS_NO_MISC_PARTITION
@@ -272,7 +276,7 @@ finish_recovery(const char *send_intent) {
     }
 
     // Copy logs to cache so the system can find out what happened.
-    FILE *log = fopen_root_path(LOG_FILE, "a");
+    FILE *log = fopen_root_path(LOG_FILE, "w+");
     if (log == NULL) {
         LOGE("Can't open %s\n", LOG_FILE);
     } else {
@@ -316,112 +320,14 @@ erase_root(const char *root) {
     return format_root_device(root);
 }
 
-static char**
-prepend_title(char** headers) {
-    char* title[] = { EXPAND(RECOVERY_VERSION),
-                      "",
-                      NULL };
-
-    // count the number of lines in our title, plus the
-    // caller-provided headers.
-    int count = 0;
-    char** p;
-    for (p = title; *p; ++p, ++count);
-    for (p = headers; *p; ++p, ++count);
-
-    char** new_headers = malloc((count+1) * sizeof(char*));
-    char** h = new_headers;
-    for (p = title; *p; ++p, ++h) *h = *p;
-    for (p = headers; *p; ++p, ++h) *h = *p;
-    *h = NULL;
-
-    return new_headers;
-}
-
-int
-get_menu_selection(char** headers, char** items, int menu_only) {
-    // throw away keys pressed previously, so user doesn't
-    // accidentally trigger menu items.
-    ui_clear_key_queue();
-
-    int item_count = ui_start_menu(headers, items);
-    int selected = 0;
-    int chosen_item = -1;
-
-    // Some users with dead enter keys need a way to turn on power to select.
-    // Jiggering across the wrapping menu is one "secret" way to enable it.
-    // We can't rely on /cache or /sdcard since they may not be available.
-    int wrap_count = 0;
-
-    while (chosen_item < 0 && chosen_item != GO_BACK) {
-        int key = ui_wait_key();
-        int visible = ui_text_visible();
-
-        int action = device_handle_key(key, visible);
-
-        int old_selected = selected;
-
-        if (action < 0) {
-            switch (action) {
-                case HIGHLIGHT_UP:
-                    --selected;
-                    selected = ui_menu_select(selected);
-                    break;
-                case HIGHLIGHT_DOWN:
-                    ++selected;
-                    selected = ui_menu_select(selected);
-                    break;
-                case SELECT_ITEM:
-                    chosen_item = selected;
-                    if (ui_get_showing_back_button()) {
-                        if (chosen_item == item_count) {
-                            chosen_item = GO_BACK;
-                        }
-                    }
-                    break;
-                case NO_ACTION:
-                    break;
-                case GO_BACK:
-                    chosen_item = GO_BACK;
-                    break;
-            }
-        } else if (!menu_only) {
-            chosen_item = action;
-        }
-
-        if (abs(selected - old_selected) > 1) {
-            wrap_count++;
-            if (wrap_count == 3) {
-                wrap_count = 0;
-                if (ui_get_showing_back_button()) {
-                    ui_print("Back menu button disabled.\n");
-                    ui_set_showing_back_button(0);
-                }
-                else {
-                    ui_print("Back menu button enabled.\n");
-                    ui_set_showing_back_button(1);
-                }
-            }
-        }
-    }
-
-    ui_end_menu();
-    ui_clear_key_queue();
-    return chosen_item;
-}
 
 static void
 wipe_data(int confirm) {
     if (confirm) {
-        static char** title_headers = NULL;
-
-        if (title_headers == NULL) {
-            char* headers[] = { "Confirm wipe of all user data?",
-                                "  THIS CAN NOT BE UNDONE.",
-                                "",
-                                NULL };
-            title_headers = prepend_title(headers);
-        }
+        char* headers[] = { "Confirm wipe of all user data?",
+                            "  THIS CAN NOT BE UNDONE.",
+                            "",
+                            NULL };
 
         char* items[] = { " No",
                           " No",
@@ -436,7 +342,7 @@ wipe_data(int confirm) {
                           " No",
                           NULL };
 
-        int chosen_item = get_menu_selection(title_headers, items, 1);
+        int chosen_item = get_menu_selection(headers, items, 1);
         if (chosen_item != 7) {
             return;
         }
@@ -456,15 +362,13 @@ wipe_data(int confirm) {
 
 static void
 prompt_and_wait() {
-    char** headers = prepend_title(MENU_HEADERS);
-    
+    char* headers[] = { EXPAND(RECOVERY_VERSION),"", NULL };
+
     for (;;) {
         finish_recovery(NULL);
         ui_reset_progress();
 
-        allow_display_toggle = 1;
         int chosen_item = get_menu_selection(headers, MENU_ITEMS, 0);
-        allow_display_toggle = 0;
 
         // device-specific code may take some action here.  It may
         // return one of the core actions handled in the switch
@@ -472,26 +376,39 @@ prompt_and_wait() {
         chosen_item = device_perform_action(chosen_item);
 
         switch (chosen_item) {
-            case ITEM_REBOOT:
-                return;
-
+            case ITEM_REBOOT: {
+                  char* rebhead[] = { REBOOT_HEADER, NULL };
+                  char* reblist[] = { REBOOT_NORMAL, REBOOT_RECOVERY, REBOOT_DOWNLOAD, NULL };
+                  for (;;) {
+                    int ci = get_menu_selection(rebhead, reblist, 0);
+                    if (ci== GO_BACK)
+                      break;
+                    switch (ci)
+                      {
+                        case 0: return;
+                        case 1: __reboot(LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, "recovery"); break;
+                        case 2: __reboot(LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, "download"); break;
+                      }
+                  }
+                  break;
+            }
             case ITEM_WIPE_DATA:
-                wipe_data(ui_text_visible());
-                if (!ui_text_visible()) return;
+                wipe_data(1);
+//                if (!ui_text_visible()) return;
                 break;
 
             case ITEM_WIPE_CACHE:
-                if (confirm_selection("Confirm wipe?", "Yes - Wipe Cache"))
+                if (confirm_selection(MENU_WIPE_CACHE_CONFIRM, MENU_WIPE_CACHE_YES))
                 {
                     ui_print("\n-- Wiping cache...\n");
                     erase_root("CACHE:");
-                    ui_print("Cache wipe complete.\n");
-                    if (!ui_text_visible()) return;
+                    ui_print(MENU_WIPE_CACHE_DONE);
+//                    if (!ui_text_visible()) return;
                 }
                 break;
 
             case ITEM_APPLY_SDCARD:
-                if (confirm_selection("Confirm install?", "Yes - Install /sdcard/update.zip"))
+                if (confirm_selection(MENU_INSTALL_CONFIRM, MENU_INSTALL_YES))
                 {
                     ui_print("\n-- Install from sdcard...\n");
 #ifndef BOARD_HAS_NO_MISC_PARTITION
@@ -500,19 +417,18 @@ prompt_and_wait() {
                     int status = install_package(SDCARD_PACKAGE_FILE);
                     if (status != INSTALL_SUCCESS) {
                         ui_set_background(BACKGROUND_ICON_ERROR);
-                        ui_print("Installation aborted.\n");
+                        ui_print(MENU_INSTALL_ABORT);
                     } else if (!ui_text_visible()) {
                         return;  // reboot if logs aren't visible
                     } else {
 #ifndef BOARD_HAS_NO_MISC_PARTITION
                         if (firmware_update_pending()) {
-                            ui_print("\nReboot via menu to complete\n"
-                                     "installation.\n");
+                            ui_print(MENU_INSTALL_NEEDREBOOT);
                         } else {
-                            ui_print("\nInstall from sdcard complete.\n");
+                            ui_print(MENU_INSTALL_DONE);
                         }
 #else
-                        ui_print("\nInstall from sdcard complete.\n");
+                        ui_print(MENU_INSTALL_DONE);
 #endif
                     }
                 }
@@ -523,14 +439,13 @@ prompt_and_wait() {
             case ITEM_NANDROID:
                 show_nandroid_menu();
                 break;
-            case ITEM_PARTITION:
-                show_partition_menu();
-                break;
             case ITEM_ADVANCED:
-                show_advanced_menu();
-                break;
-            case ITEM_ADVANCED_LFS:
                 show_advanced_lfs_menu();
+                break;
+            case ITEM_AFTERBURNER:
+                if (do_steam_afterburner(2)==0) {
+                  ui_print(OEM_AFTERBURNER_NOTFOUND);
+                }
                 break;
         }
     }
@@ -541,52 +456,46 @@ print_property(const char *key, const char *name, void *cookie) {
     fprintf(stderr, "%s=%s\n", key, name);
 }
 
-int
-main(int argc, char **argv) {
-	if (strstr(argv[0], "recovery") == NULL)
-	{
-	    if (strstr(argv[0], "flash_image") != NULL)
-	        return flash_image_main(argc, argv);
-	    if (strstr(argv[0], "dump_image") != NULL)
-	        return dump_image_main(argc, argv);
-	    if (strstr(argv[0], "erase_image") != NULL)
-	        return erase_image_main(argc, argv);
-	    if (strstr(argv[0], "mkyaffs2image") != NULL)
-	        return mkyaffs2image_main(argc, argv);
-	    if (strstr(argv[0], "unyaffs") != NULL)
-	        return unyaffs_main(argc, argv);
-        if (strstr(argv[0], "amend"))
-            return amend_main(argc, argv);
-        if (strstr(argv[0], "nandroid"))
-            return nandroid_main(argc, argv);
-        if (strstr(argv[0], "reboot"))
-            return reboot_main(argc, argv);
-        if (strstr(argv[0], "setprop"))
-            return setprop_main(argc, argv);
-        if (strstr(argv[0], "graphsh"))
-            return graphsh_main(argc, argv);
-        if (strstr(argv[0], "graphchoice"))
-            return graphchoice_main(argc, argv);
-        if (strstr(argv[0], "truncate"))
-            return truncate_main(argc,argv);
-        if (strstr(argv[0], "lagfixer"))
-            return lagfixer_main(argc,argv);
-		return busybox_driver(argc, argv);
-	}
-    __system("/sbin/postrecoveryboot.sh");
-    create_fstab();
-    
-    int is_user_initiated_recovery = 0;
-    time_t start = time(NULL);
-
+int main(int argc, char **argv) {
     // If these fail, there's not really anywhere to complain...
+    __system("/sbin/postrecoveryboot.sh");
+    time_t start = time(NULL);
     freopen(TEMPORARY_LOG_FILE, "a", stdout); setbuf(stdout, NULL);
     freopen(TEMPORARY_LOG_FILE, "a", stderr); setbuf(stderr, NULL);
     fprintf(stderr, "Starting recovery on %s", ctime(&start));
 
+    create_fstab();
+    init_conf();
+
+    int is_user_initiated_recovery = 0;
+
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");
-    get_args(&argc, &argv);
+    int use_command = get_args(&argc, &argv);
+    if (use_command) {
+      if (do_steam_install_fromcache()) {
+        return 0;
+      }
+    }
+
+    char value[VALUE_MAX_LENGTH];
+    if (strcmp(get_conf_def("steam.installation",value,"0"),"1")==0) {
+      if (do_steam_install()) {
+        return 0;
+      }
+    }
+
+    if (strcmp(get_conf_def("steam.upgrade",value,"0"),"1")==0) {
+      if (do_steam_upgrade()) {
+        return 0;
+      }
+    }
+
+    if (strcmp(get_conf_def("steam.uninstallation",value,"0"),"1")==0) {
+      if (do_steam_uninstall()) {
+        return 0;
+      }
+    }
 
     int previous_runs = 0;
     const char *send_intent = NULL;
@@ -619,7 +528,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "\n");
 
     int status = INSTALL_SUCCESS;
-    
+
     RecoveryCommandContext ctx = { NULL };
     if (register_update_commands(&ctx)) {
         LOGE("Can't install update commands\n");
@@ -649,7 +558,7 @@ main(int argc, char **argv) {
         script_assert_enabled = 0;
         is_user_initiated_recovery = 1;
         ui_set_show_text(1);
-        
+
         if (extendedcommand_file_exists()) {
             LOGI("Running extendedcommand...\n");
             int ret;
@@ -678,9 +587,7 @@ main(int argc, char **argv) {
     ui_print("Rebooting...\n");
     sync();
     reboot(RB_AUTOBOOT);
+    ui_done();
     return EXIT_SUCCESS;
 }
 
-int get_allow_toggle_display() {
-    return allow_display_toggle;
-}

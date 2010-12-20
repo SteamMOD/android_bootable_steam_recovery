@@ -15,7 +15,7 @@
  */
 
 #include "bootloader.h"
-#include "common.h"
+#include "ui.h"
 #include "mtdutils/mtdutils.h"
 #include "roots.h"
 

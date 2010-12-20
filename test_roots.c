@@ -16,7 +16,7 @@
 
 #include <sys/stat.h>
 #include "roots.h"
-#include "common.h"
+#include "ui.h"
 
 #define CANARY_FILE "/system/build.prop"
 #define CANARY_FILE_ROOT_PATH "SYSTEM:build.prop"

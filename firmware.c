@@ -15,7 +15,7 @@
  */
 
 #include "bootloader.h"
-#include "common.h"
+#include "ui.h"
 #include "firmware.h"
 #include "roots.h"
 

@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <cutils/properties.h>
 
-int reboot_main(int argc, char *argv[])
+int steam_reboot_main(int argc, char *argv[])
 {
     int ret;
     int nosync = 0;
@@ -17,11 +17,11 @@ int reboot_main(int argc, char *argv[])
         int c;
 
         c = getopt(argc, argv, "npf");
-        
+
         if (c == EOF) {
             break;
         }
-        
+
         switch (c) {
         case 'n':
             nosync = 1;
@@ -29,7 +29,7 @@ int reboot_main(int argc, char *argv[])
         case 'p':
             poweroff = 1;
             break;
-    	case 'f':
+        case 'f':
 	        force = 1;
 	        break;
         case '?':

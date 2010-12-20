@@ -22,7 +22,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "common.h"
+#include "ui.h"
 #include "install.h"
 #include "mincrypt/rsa.h"
 #include "minui/minui.h"
@@ -35,7 +35,7 @@
 #include "firmware.h"
 
 #include "amend/amend.h"
-#include "common.h"
+#include "ui.h"
 #include "install.h"
 #include "mincrypt/rsa.h"
 #include "minui/minui.h"

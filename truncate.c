@@ -10,10 +10,12 @@
 #include "stdlib.h"
 #include "unistd.h"
 #include "sys/types.h"
-#include "common.h"
-#include "lagfixutils.h"
+#include "ui.h"
+#include "steamext.h"
 
-int truncate_main(int argc, char **argv)
+int truncate(const char* path, off_t length);
+
+int steam_truncate_main(int argc, char **argv)
 {
     char* name;
     char* length;

@@ -3,9 +3,9 @@ ifeq ($(TARGET_ARCH),arm)
 
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
+LOCAL_CFLAGS := -Os $(STEAM_FUNCTIONS)
 
 commands_recovery_local_path := $(LOCAL_PATH)
-# LOCAL_CPP_EXTENSION := .c
 
 LOCAL_SRC_FILES := \
 	extendedcommands.c \
@@ -16,14 +16,21 @@ LOCAL_SRC_FILES := \
 	graphsh.c \
 	install.c \
 	truncate.c \
-	lagfixutils.c \
+	steamext.c \
 	roots.c \
 	ui.c \
-	verifier.c 
+	verifier.c \
+	init.c \
+	system.c \
+	device.c \
+	config.c \
+	oem.c
 
 LOCAL_SRC_FILES += \
     reboot.c \
     setprop.c
+
+LOCAL_CFLAGS += -Dmain=steam_recovery_main
 
 ifndef BOARD_HAS_NO_MISC_PARTITION
     LOCAL_SRC_FILES += \
@@ -43,13 +50,10 @@ endif
 
 LOCAL_SRC_FILES += test_roots.c
 
-LOCAL_MODULE := recovery
 
-LOCAL_FORCE_STATIC_EXECUTABLE := true
-
-RECOVERY_VERSION := ClockworkMod Recovery v2.5.1.0 lagfix edition
+RECOVERY_VERSION := $(STEAM_VERSION)
 LOCAL_CFLAGS += -DRECOVERY_VERSION="$(RECOVERY_VERSION)"
-RECOVERY_API_VERSION := 2
+RECOVERY_API_VERSION := 3
 LOCAL_CFLAGS += -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 
 ifeq ($(BOARD_HAS_NO_SELECT_BUTTON),true)
@@ -130,7 +134,7 @@ endif
 
 ifdef BOARD_USES_BMLUTILS
   LOCAL_CFLAGS += -DBOARD_USES_BMLUTILS
-  LOCAL_STATIC_LIBRARIES += libbmlutils
+  LOCAL_STATIC_LIBRARIES += libsteam_bmlutils
 endif
 
 ifdef BOARD_HAS_SMALL_RECOVERY
@@ -143,88 +147,30 @@ endif
 # TODO: Build the ramdisk image in a more principled way.
 
 LOCAL_MODULE_TAGS := eng
-
+LOCAL_MODULE := libsteam_recovery
 LOCAL_STATIC_LIBRARIES :=
-ifeq ($(BOARD_CUSTOM_RECOVERY_KEYMAPPING),)
-  LOCAL_SRC_FILES += default_recovery_ui.c
-else
-  LOCAL_SRC_FILES += $(BOARD_CUSTOM_RECOVERY_KEYMAPPING)
-endif
-LOCAL_STATIC_LIBRARIES += libbusybox libclearsilverregex libmkyaffs2image libunyaffs liberase_image libdump_image libflash_image libmtdutils
-LOCAL_STATIC_LIBRARIES += libamend
-LOCAL_STATIC_LIBRARIES += libminzip libunz libmtdutils libmmcutils libmincrypt
-LOCAL_STATIC_LIBRARIES += libminui libpixelflinger_static libpng libcutils
+
+LOCAL_C_INCLUDES := bootable/steam
+
+LOCAL_STATIC_LIBRARIES += libsteam_busybox libsteam_clearsilverregex libsteam_mkyaffs2image libsteam_unyaffs libsteam_erase_image libsteam_dump_image libsteam_flash_image libsteam_mtdutils
+LOCAL_STATIC_LIBRARIES += libsteam_amend
+LOCAL_STATIC_LIBRARIES += libsteam_minzip libunz libsteam_mtdutils libsteam_mmcutils libmincrypt
+LOCAL_STATIC_LIBRARIES += libsteam_minui libpixelflinger_static libpng libcutils
 LOCAL_STATIC_LIBRARIES += libstdc++ libc
 
-include $(BUILD_EXECUTABLE)
-
-RECOVERY_LINKS := amend busybox flash_image dump_image mkyaffs2image unyaffs erase_image nandroid reboot
-
-# nc is provided by external/netcat
-SYMLINKS := $(addprefix $(TARGET_RECOVERY_ROOT_OUT)/sbin/,$(RECOVERY_LINKS))
-$(SYMLINKS): RECOVERY_BINARY := $(LOCAL_MODULE)
-$(SYMLINKS): $(LOCAL_INSTALLED_MODULE)
-	@echo "Symlink: $@ -> $(RECOVERY_BINARY)"
-	@mkdir -p $(dir $@)
-	@rm -rf $@
-	$(hide) ln -sf $(RECOVERY_BINARY) $@
-
-ALL_DEFAULT_INSTALLED_MODULES += $(SYMLINKS)
-
-# Now let's do recovery symlinks
-BUSYBOX_LINKS := $(shell cat external/busybox/busybox-minimal.links)
-SYMLINKS := $(addprefix $(TARGET_RECOVERY_ROOT_OUT)/sbin/,$(filter-out $(exclude),$(notdir $(BUSYBOX_LINKS))))
-$(SYMLINKS): BUSYBOX_BINARY := busybox
-$(SYMLINKS): $(LOCAL_INSTALLED_MODULE)
-	@echo "Symlink: $@ -> $(BUSYBOX_BINARY)"
-	@mkdir -p $(dir $@)
-	@rm -rf $@
-	$(hide) ln -sf $(BUSYBOX_BINARY) $@
-
-ALL_DEFAULT_INSTALLED_MODULES += $(SYMLINKS)
+include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := nandroid-md5.sh
-LOCAL_MODULE_TAGS := eng
-LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
-LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
-LOCAL_SRC_FILES := nandroid-md5.sh
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := killrecovery.sh
-LOCAL_MODULE_TAGS := eng
-LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
-LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
-LOCAL_SRC_FILES := killrecovery.sh
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
+LOCAL_CFLAGS := -Os
 
 LOCAL_SRC_FILES := verifier_test.c verifier.c
-
-LOCAL_MODULE := verifier_test
-
+LOCAL_MODULE := steam_verifier_test
 LOCAL_FORCE_STATIC_EXECUTABLE := true
-
 LOCAL_MODULE_TAGS := tests
-
 LOCAL_STATIC_LIBRARIES := libmincrypt libcutils libstdc++ libc
 
 include $(BUILD_EXECUTABLE)
 
-
-include $(commands_recovery_local_path)/amend/Android.mk
-include $(commands_recovery_local_path)/bmlutils/Android.mk
-include $(commands_recovery_local_path)/minui/Android.mk
-include $(commands_recovery_local_path)/minzip/Android.mk
-include $(commands_recovery_local_path)/mtdutils/Android.mk
-include $(commands_recovery_local_path)/mmcutils/Android.mk
-include $(commands_recovery_local_path)/tools/Android.mk
-include $(commands_recovery_local_path)/edify/Android.mk
-include $(commands_recovery_local_path)/updater/Android.mk
-include $(commands_recovery_local_path)/applypatch/Android.mk
-include $(commands_recovery_local_path)/utilities/Android.mk
 commands_recovery_local_path :=
 
 endif   # TARGET_ARCH == arm

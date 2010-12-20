@@ -85,6 +85,49 @@
 #define SYSTEM_FILESYSTEM_OPTIONS NULL
 #endif
 
+//////////////////////////////////////
+// Steam: filesystem types and options
+#define TYPE_RFS 1
+#define TYPE_EXT2 2
+#define TYPE_EXT4 4
+#define TYPE_JFS 8
+
+#define TYPE_FSTYPE_MASK 127
+
+#define TYPE_CRYPT 128
+#define TYPE_LOOP 256
+#define TYPE_BIND 512
+#define TYPE_RFS_BAD 1024
+
+#define TYPE_RFS_DEFAULT_MOUNT "nodev,nosuid,check=no"
+#define TYPE_EXT2_DEFAULT_MOUNT "noatime,nodiratime"
+#define TYPE_EXT4_DEFAULT_MOUNT "noatime,barrier=0,noauto_da_alloc"
+#define TYPE_JFS_DEFAULT_MOUNT "relatime,errors=continue"
+#define TYPE_RFS_BAD_DEFAULT_MOUNT "nodev,nosuid"
+
+#define BLOCK_DATA_LOOP_SIZE 1831634944
+#define BLOCK_DBDATA_LOOP_SIZE 128382976
+#define BLOCK_CACHE_LOOP_SIZE 29726720
+
+// check if block contains an encrypted partition or not
+int is_encrypted_partition(const char* partition);
+// opens an encrypted block
+int open_encrypted_partition(const char* partition, char* secret);
+// checks which filesystem is contained inside the block. returns the filsystem code
+int filesystem_check(const char* partition);
+// fsck's and mounts the filesystem. returns 0 if success
+int check_and_mount(int fstype, const char* partition, const char* loopname, const char* mtname, char* secret);
+// formats a block to the desired filesystem
+int filesystem_format(int fstype, const char* partition, const char* loopname, const char* mtname, char* secret);
+// asks the user what to do
+int filesystem_create(const char* partition, const char* label);
+// mounts a filesystem from the config, and falls back in case of failure. returns the filesystem type
+int mount_from_config_or_autodetect(const char* keyname, const char* partition, const char* loopname, const char* mtname, char* secret);
+// unmounts a filesystem completely
+int unmount_filesystem(const char* partition);
+
+// End of Steam stuff
+//////////////////////////////////////////////////////////////
 
 /* Any of the "root_path" arguments can be paths with relative
  * components, like "SYSTEM:a/b/c".

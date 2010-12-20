@@ -31,7 +31,7 @@
 
 #include "amend/commands.h"
 #include "commands.h"
-#include "common.h"
+#include "ui.h"
 #include "cutils/misc.h"
 #include "cutils/properties.h"
 #include "firmware.h"

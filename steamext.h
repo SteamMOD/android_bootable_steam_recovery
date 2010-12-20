@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2010 Zsolt Sz Sztupák
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef RECOVERY_INSTALL_H_
-#define RECOVERY_INSTALL_H_
+#ifndef __STEAM_STEAMEXT_H
+#define __STEAM_STEAMEXT_H
 
-#include "ui.h"
+#include "roots.h"
 
-enum { INSTALL_SUCCESS, INSTALL_ERROR, INSTALL_CORRUPT, INSTALL_UPDATE_SCRIPT_MISSING, INSTALL_UPDATE_BINARY_MISSING };
-int install_package(const char *root_path);
+void show_advanced_lfs_menu();
+int graphsh_main(int argc, char** argv);
+int graphchoice_main(int argc, char** argv);
+int truncate_main(int argc, char** argv);
+void apply_root_to_device();
+void lagfix_menu();
 
-#endif  // RECOVERY_INSTALL_H_
+#endif

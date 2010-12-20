@@ -29,21 +29,21 @@
 #include <sys/stat.h>
 
 #include "bootloader.h"
-#include "common.h"
+#include "ui.h"
 #include "cutils/properties.h"
 #include "install.h"
 #include "minui/minui.h"
 #include "minzip/DirUtil.h"
 #include "roots.h"
-#include "recovery_ui.h"
+#include "device.h"
 
 #include "extendedcommands.h"
 #include "commands.h"
-#include "lagfixutils.h"
+#include "steamext.h"
 
 extern char **environ;
 // runs the program and redirects it's output to the screen using ui_print
-int graphsh_main(int argc, char** argv) {
+int steam_graphsh_main(int argc, char** argv) {
   if (argc>=2) {
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)" - script runner\n");
@@ -77,7 +77,7 @@ int graphsh_main(int argc, char** argv) {
 
 extern char **environ;
 // runs the program and redirects it's output to the screen using ui_print
-int graphchoice_main(int argc, char** argv) {
+int steam_graphchoice_main(int argc, char** argv) {
   if (argc>=2) {
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)" - choice app\n");

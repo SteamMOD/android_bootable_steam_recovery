@@ -51,6 +51,7 @@ extern char **environ;
 int apply_ln(char* name) {
   char n[128];
   sprintf(n,"/system/xbin/%s",name);
+  unlink(n);
   return symlink("/system/xbin/busybox",n);
 }
 

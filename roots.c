@@ -788,9 +788,17 @@ int filesystem_format(int fstype, const char* partition, const char* loopname, c
     }
     sh(header);
   } else if (fstype&TYPE_EXT2) {
-    call_mke2fs("mkfs.ext2","-L",mtname,"-b","4096","-m","0","-F",fromname,NULL);
+    if (strcmp(partition,DATA_BLOCK_NAME)==0) {
+      call_mke2fs("mkfs.ext2","-L",mtname,"-b","4096","-m","0","-F",fromname,NULL);
+    } else {
+      call_mke2fs("mkfs.ext2","-L",mtname,"-b","1024","-m","0","-F",fromname,NULL);
+    }
   } else if (fstype&TYPE_EXT4) {
-    call_mke2fs("mkfs.ext4","-L",mtname,"-b","4096","-m","0","-F",fromname,NULL);
+    if (strcmp(partition,DATA_BLOCK_NAME)==0) {
+      call_mke2fs("mkfs.ext4","-L",mtname,"-b","4096","-m","0","-F",fromname,NULL);
+    } else {
+      call_mke2fs("mkfs.ext4","-L",mtname,"-b","1024","-J","size=4","-m","0","-F",fromname,NULL);
+    }
   } else if (fstype&TYPE_JFS) {
     call_mkfs_jfs("mkfs.jfs","-q","-L",mtname,fromname,NULL);
   }

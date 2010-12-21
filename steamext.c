@@ -79,16 +79,6 @@ void apply_root_to_device(int mode) {
   call_busybox("chown","0.0","/system/app/Superuser.apk",NULL);
   call_busybox("chmod","644","/system/app/Superuser.apk",NULL);
 
-  ui_print(APPROOT_COPYING_BB);
-  call_busybox("rm","/system/xbin/busybox",NULL);
-  call_busybox("rm","/system/bin/busybox",NULL);
-#ifdef STEAM_HAS_BUSYBOX
-  call_busybox("cp","/sbin/steam","/system/xbin/busybox",NULL);
-#else
-  call_busybox("cp","/sbin/busybox","/system/xbin/busybox",NULL);
-#endif
-  call_busybox("chmod","755","/system/xbin/busybox",NULL);
-
   ui_print(APPROOT_CRSYMLINK);
   char** command = steam_command_list;
   while (*command) {
@@ -128,6 +118,18 @@ void apply_root_to_device(int mode) {
       apply_rm("umount");
     }
   }
+
+  ui_print(APPROOT_COPYING_BB);
+  call_busybox("rm","/system/xbin/busybox",NULL);
+  call_busybox("rm","/system/bin/busybox",NULL);
+#ifdef STEAM_HAS_BUSYBOX
+  call_busybox("cp","/sbin/steam","/system/xbin/busybox",NULL);
+#else
+  call_busybox("cp","/sbin/busybox","/system/xbin/busybox",NULL);
+#endif
+  call_busybox("chmod","755","/system/xbin/busybox",NULL);
+
+
   ui_print(APPROOT_DONE);
 }
 

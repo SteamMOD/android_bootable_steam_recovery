@@ -255,14 +255,14 @@ int do_steam_install()
     return 0;
   }
   // we can flash 128MB worth of afterburner.zip inside the dbdata
-  if (stat("/dbdata/afterburner",&s)) {
+  if (stat("/dbdata/afterburner",&s)==0) {
     char path[PATH_MAX];
     call_busybox("mkdir","/mnt/sdcard/steam",NULL);
-    sprintf(path,"/mnt/sdcard/steam/afterburner_%s_%s.zip",get_conf_def("steam.variant",value,"steamkrnl"),get_conf_def("steam.version",value2,"0"));
+    sprintf(path,"/dbdata/afterburner/afterburner_%s_%s.zip",get_conf_def("steam.variant",value,"steamkrnl"),get_conf_def("steam.version",value2,"0"));
     call_busybox("cp",path,"/mnt/sdcard/steam",NULL);
-    sprintf(path,"/mnt/sdcard/steam/afterburner_%s.zip",get_conf_def("steam.variant",value,"steamkrnl"));
+    sprintf(path,"/dbdata/afterburner/afterburner_%s.zip",get_conf_def("steam.variant",value,"steamkrnl"));
     call_busybox("cp",path,"/mnt/sdcard/steam",NULL);
-    sprintf(path,"/mnt/sdcard/steam/afterburner.zip");
+    sprintf(path,"/dbdata/afterburner/afterburner.zip");
     call_busybox("cp",path,"/mnt/sdcard/steam",NULL);
   }
   do_steam_afterburner(1);
@@ -350,14 +350,16 @@ int do_steam_install_fromcache()
   if (chosen_item == GO_BACK) { ui_end_menu(); return 0; }
   chosen_item = me.id;
   ui_end_menu();
+  // they might need it
+  call_busybox("cp","/sbin/fat.format","/system/bin/fat.format",NULL);
   if (chosen_item==1) {
     ui_done();
     call_busybox("rm","/sbin/recovery",NULL);
     if (has_rec2e==1) {
-      sh("cp -R /system/etc/steam/rec2e/* /");
+      sh("cp -Rf /system/etc/steam/rec2e/* /");
       call_busybox("chmod","755","/sbin/recovery",NULL);
     } else {
-      sh("cp -R /mnt/sdcard/steam/rec2e/* /");
+      sh("cp -Rf /mnt/sdcard/steam/rec2e/* /");
       call_busybox("chmod","755","/sbin/recovery",NULL);
     }
     char* argp[] = { "recovery", NULL };
@@ -369,10 +371,10 @@ int do_steam_install_fromcache()
     ui_done();
     call_busybox("rm","/sbin/recovery",NULL);
     if (has_rec2e==1) {
-      sh("cp -R /system/etc/steam/rec3e/* /");
+      sh("cp -Rf /system/etc/steam/rec3e/* /");
       call_busybox("chmod","755","/sbin/recovery",NULL);
     } else {
-      sh("cp -R /mnt/sdcard/steam/rec3e/* /");
+      sh("cp -Rf /mnt/sdcard/steam/rec3e/* /");
       call_busybox("chmod","755","/sbin/recovery",NULL);
     }
     char* argp[] = { "recovery", NULL };

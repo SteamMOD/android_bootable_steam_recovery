@@ -54,7 +54,7 @@
 #define APPROOT_HEADER "Install superuser"
 #define APPROOT_SIMPLE "Simple: install busybox+su\001This option will install busybox and superuser binaries, but will not remove old toolbox commands, so they will always take precedence"
 #define APPROOT_ADV "Adv: also rm some toolbox cmds\001This option will install busybox and superuser binaries, and will remove some toolbox commands: cat, chmod, chown, dd, ln, ls, mkdir, mv, rm, rmdir"
-#define APPROOT_EXT "Simple: install busybox+su\001This option will install busybox and superuser binaries, and will remove most toolbox commands: cat, chmod, chown, dd, ln, ls, mkdir, mv, rm, rmdir, cmp, date, df, dmesg, id, insmod, kill, lsmod, mount, printenv, ps, renice, sleep, sync, top, umount"
+#define APPROOT_EXT "Ext: also rm most toolbox cmds\001This option will install busybox and superuser binaries, and will remove most toolbox commands: cat, chmod, chown, dd, ln, ls, mkdir, mv, rm, rmdir, cmp, date, df, dmesg, id, insmod, kill, lsmod, mount, printenv, ps, renice, sleep, sync, top, umount"
 
 #define APPROOT_COPYING "Copying Superuser and Busybox files to /system/xbin\n"
 #define APPROOT_COPYING_SU "Copying su binary\n"

@@ -285,7 +285,7 @@
 #define INIT_STAGE "%d. LEPES INDITASA\n"
 
 #define INIT_RFS_INCONSISTENT_FIX_HEADER "A /system particiod inkonzisztens\nallapotban van. Steam megprobalhatja\nezt kijavitani, de a folyamat nem biztos,\nhogy sikerul. Mit tegyek?"
-#define INIT_RFS_INCONSISTENT_FIX_TAR "Particio helyreallitasa\001Ez az opcio kesziteni fog egy masolatot a /system-rol az SD kartyara, majd ujraformazza a particiot, majd visszaallitja a particiokat. A lementett fajlokat ezutan torli.
+#define INIT_RFS_INCONSISTENT_FIX_TAR "Particio helyreallitasa\001Ez az opcio kesziteni fog egy masolatot a /system-rol az SD kartyara, majd ujraformazza a particiot, majd visszaallitja a particiokat. A lementett fajlokat ezutan torli."
 #define INIT_RFS_INCONSISTENT_FIX_NONE "Ne formazd\ncsatolas check modban\001Ezzel az opcioval a particiot a regi bealitasokkal lehet felcsatolni."
 #define INIT_RFS_INCONSISTENT_FIX_NONE2 "Ne formazd\ncsatolas check=no modban\001Ez az opcio nem fogja a particiot atalakitani, de a masik csatolasi parameterrel inditja. Csak akkor valaszd ezt az opciot, ha biztos vagy benne, hogy az automatikus detektalas hibasan hiszi azt, hogy hibas a /system particiod"
 

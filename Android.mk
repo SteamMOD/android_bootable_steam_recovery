@@ -5,6 +5,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_CFLAGS := -Os $(STEAM_FUNCTIONS)
 
+#LOCAL_CFLAGS += -DDEVICE_NS_ON_SGS
+#LOCAL_CFLAGS += -DSTEAM_LANGUAGE_HUNGARIAN
+
 commands_recovery_local_path := $(LOCAL_PATH)
 
 LOCAL_SRC_FILES := \

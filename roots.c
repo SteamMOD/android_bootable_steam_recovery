@@ -203,9 +203,11 @@ static int mount_internal(const char* device, const char* mount_point, const cha
       } else if (strcmp(device,CACHE_BLOCK_NAME)==0) {
         strcpy(loopname,"loop1");
         strcpy(mtname,"cache");
+#ifdef HAS_DATADATA
       } else if (strcmp(device,DBDATA_BLOCK_NAME)==0) {
         strcpy(loopname,"loop3");
         strcpy(mtname,"dbdata");
+#endif
       } else if (strcmp(device,DATA_BLOCK_NAME)==0) {
         strcpy(loopname,"loop2");
         strcpy(mtname,"data");
@@ -319,7 +321,8 @@ ensure_root_path_unmounted(const char *root_path)
         return 0;
     }
 
-    ret = unmount_filesystem(info->mount_point);
+    ret = 0;
+    if (info->filesystem==g_auto) ret = unmount_filesystem(info->mount_point);
     if (ret) {
       return unmount_mounted_volume(volume);
     } else {
@@ -571,7 +574,9 @@ int filesystem_check(const char* partition) {
   call_busybox("mkdir","/res/.tmp",NULL);
   call_busybox("chmod","700","/res/.tmp",NULL);
 
-  if (call_busybox("mount","-t","ext2","-o",TYPE_EXT2_DEFAULT_MOUNT,frommount,loopmount,NULL)==0) {
+  if (stat(frommount,&s)==0 && S_ISDIR(s.st_mode) && call_busybox("mount","-o","bind",frommount,loopmount,NULL)==0) {
+    fstype = TYPE_DIRECTORY;
+  } else if (call_busybox("mount","-t","ext2","-o",TYPE_EXT2_DEFAULT_MOUNT,frommount,loopmount,NULL)==0) {
     // ext3/4 won't mount as ext2, so we can differentiate them by trying ext2 first
     fstype = TYPE_EXT2;
   } else if (call_busybox("mount","-t","ext4","-o",TYPE_EXT4_DEFAULT_MOUNT,frommount,loopmount,NULL)==0) {
@@ -641,6 +646,9 @@ int check_and_mount(int fstype, const char* partition, const char* loopname, con
       call_busybox("chmod","700",topath,NULL);
     } else {
       sprintf(topath,"/%s",mtname);
+      struct stat s;
+      if (stat(topath,&s))
+        call_busybox("mkdir",topath,NULL);
     }
     // mount base fs
     if (fstype&TYPE_RFS) {
@@ -666,6 +674,10 @@ int check_and_mount(int fstype, const char* partition, const char* loopname, con
       if (call_busybox("mount","-t","jfs","-o",TYPE_JFS_DEFAULT_MOUNT,frompath,topath,NULL)) {
         if (fstype&TYPE_CRYPT) { char secname[32];sprintf(secname,"sec%s",strrchr(partition,'/')+1);call_cryptsetup("cryptsetup","luksClose",secname,NULL); }
         return 5;
+      }
+    } else if (fstype&TYPE_DIRECTORY) {
+      if (call_busybox("mount","-o","bind",frompath,topath,NULL)) {
+        return 32766;
       }
     }
     // mount loop
@@ -777,8 +789,10 @@ int filesystem_format(int fstype, const char* partition, const char* loopname, c
     char header[255];
     if (strcmp(partition,DATA_BLOCK_NAME)==0) {
       sprintf(header,"/sbin/fat.format -v -F 32 -S 4096 -s 4 %s",fromname);
+#ifdef HAS_DATADATA
     } else if (strcmp(partition,DBDATA_BLOCK_NAME)==0) {
       sprintf(header,"/sbin/fat.format -v -F 16 -S 4096 -s 1 %s",fromname);
+#endif
     } else if (strcmp(partition,CACHE_BLOCK_NAME)==0) {
       sprintf(header,"/sbin/fat.format -v -F 16 -S 4096 -s 1 %s",fromname);
     } else if (strcmp(partition,SYSTEM_BLOCK_NAME)==0) {
@@ -801,6 +815,9 @@ int filesystem_format(int fstype, const char* partition, const char* loopname, c
     }
   } else if (fstype&TYPE_JFS) {
     call_mkfs_jfs("mkfs.jfs","-q","-L",mtname,fromname,NULL);
+  } else if (fstype&TYPE_DIRECTORY) {
+    call_busybox("rm","-rf",fromname,NULL);
+    call_busybox("mkdir",fromname,NULL);
   }
 
   if (fstype&TYPE_LOOP) {
@@ -811,8 +828,10 @@ int filesystem_format(int fstype, const char* partition, const char* loopname, c
       int loopsize = 0;
       if (strcmp(partition,DATA_BLOCK_NAME)==0) {
         loopsize = BLOCK_DATA_LOOP_SIZE;
+#ifdef HAS_DATADATA
       } else if (strcmp(partition,DBDATA_BLOCK_NAME)==0) {
         loopsize = BLOCK_DBDATA_LOOP_SIZE;
+#endif
       } else if (strcmp(partition,CACHE_BLOCK_NAME)==0) {
         loopsize = BLOCK_CACHE_LOOP_SIZE;
       }
@@ -907,9 +926,15 @@ int unmount_filesystem(const char* partition)
     strcpy(loopname,"/dev/block/loop2");
     strcpy(blockname,DATA_BLOCK_NAME);
     found = 1;
+#ifdef HAS_DATADATA
   } else if (strcmp(partition,"/dbdata")==0) {
     strcpy(loopname,"/dev/block/loop3");
     strcpy(blockname,DBDATA_BLOCK_NAME);
+    found = 1;
+#endif
+  } else if (strcmp(partition,"/efs")==0) {
+    strcpy(loopname,"/dev/block/loop4");
+    strcpy(blockname,EFS_BLOCK_NAME);
     found = 1;
   }
   if (found) {

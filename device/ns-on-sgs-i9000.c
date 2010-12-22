@@ -8,7 +8,7 @@ RootInfo g_roots[] = {
 #endif
 // partitions
 #ifdef BOARD_HAS_PHONE_CONTROLLER
-    { "EFS:", EFS_BLOCK_NAME, NULL, "efs", "/efs", "rfs", "nosuid,nodev,check=no" },
+    { "EFS:", EFS_BLOCK_NAME, NULL, "efs", "/efs", g_auto, NULL },
 #endif
     { "CACHE:", CACHE_BLOCK_NAME, NULL, "cache", "/cache", g_auto, NULL },
     { "DATA:", DATA_BLOCK_NAME, NULL, "userdata", "/data", g_auto, NULL },
@@ -29,7 +29,7 @@ RootInfo g_roots[] = {
 };
 #define NUM_ROOTS (sizeof(g_roots) / sizeof(g_roots[0]))
 
-string mounts[MOUNTABLE_COUNT][3] = { 
+string mounts[MOUNTABLE_COUNT][3] = {
     { "mount /system", "unmount /system", "SYSTEM:" },
     { "mount /data", "unmount /data", "DATA:" },
     { "mount /cache", "unmount /cache", "CACHE:" },
@@ -42,7 +42,7 @@ string mounts[MOUNTABLE_COUNT][3] = {
 #endif
     { "mount /sd-ext", "unmount /sd-ext", "SDEXT:" }
     };
-    
+
 string mtds[MTD_COUNT][2] = {
     { "format system", "SYSTEM:" },
     { "format data", "DATA:" },
@@ -58,27 +58,29 @@ string mmcs[MMC_COUNT][3] = {
 
 void fix_init(int isrecovery)
 {
-// TODO: This is designed for an unmodified initramfs, and might break if it's already modified
-  call_busybox("sed","-i","/export TMPDIR/ a\\\n    class_start earlyinitclass","init.rc",NULL);
-  call_busybox("sed","-i","s/mount rfs/#mount rfs/","init.rc",NULL);
-  call_busybox("sed","-i","s|/system/bin/playlogos1|/sbin/steam postinit|g","init.rc",NULL);
+  // fix vold.conf
+  call_busybox("sed","-i","s|dev_mount sdcard.*|dev_mount sdcard /mnt/sdcard 1 /devices/platform/s3c-sdhci.0/mmc_host/mmc0/mmc0:0001/block/mmcblk0|","/system/etc/vold.fstab",NULL);
 
-  if (get_conf("init.bootanim",value) && strcmp(value,"2")==0) {
-     call_busybox("sed","-i","/service playlogos1/ i\\\nservice bootanim /system/bin/bootanimation","init.rc",NULL);
-     call_busybox("sed","-i","/service playlogos1/ i\\\n    user graphics","init.rc",NULL);
-     call_busybox("sed","-i","/service playlogos1/ i\\\n    group graphics","init.rc",NULL);
-     call_busybox("sed","-i","/service playlogos1/ i\\\n    oneshot","init.rc",NULL);
-     call_busybox("sed","-i","/service playlogos1/ i\\\n    disabled","init.rc",NULL);
-     call_busybox("sed","-i","/service playlogos1/ i\\\n    class nostart\\\n\\\n","init.rc",NULL);
-   }
-   call_busybox("sed","-i","/service playlogos1/ i\\\nservice earlyinit /sbin/steam earlyinit","init.rc",NULL);
-   call_busybox("sed","-i","/service playlogos1/ i\\\n    user root","init.rc",NULL);
-   call_busybox("sed","-i","/service playlogos1/ i\\\n    group root","init.rc",NULL);
-   call_busybox("sed","-i","/service playlogos1/ i\\\n    oneshot","init.rc",NULL);
-   call_busybox("sed","-i","/service playlogos1/ i\\\n    class earlyinitclass\\\n\\\n","init.rc",NULL);
+  if (isrecovery) {
+    // TODO: hardcoding this _IS_ bad
+    call_busybox("sed","-i","306,411d","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\nservice recovery /sbin/steam recovery","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    user root","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    group root","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    oneshot\\\n\\\n","init.rc",NULL);
+    call_busybox("sed","-i","s|mount yaffs2 mtd@system /system ro remount|#|","init.rc",NULL);
+  } else {
+    call_busybox("sed","-i","/export BOOTCLASSPATH/ a\\\n    class_start earlyinitclass","init.rc",NULL);
 
-   call_busybox("sed","-i","s|mount tmpfs nodev /tmp||","recovery.rc",NULL);
-   call_busybox("sed","-i","s/mount rfs/#mount rfs/","recovery.rc",NULL);
-   call_busybox("sed","-i","s|/sbin/adbd recovery|/sbin/adbd|","recovery.rc",NULL);
-   call_busybox("sed","-i","s|/system/bin/recovery|/sbin/recovery|","recovery.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\nservice earlyinit /sbin/steam earlyinit","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    user root","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    group root","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    oneshot","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    class earlyinitclass\\\n\\\n","init.rc",NULL);
+
+    call_busybox("sed","-i","/service console/ i\\\nservice postinit /sbin/steam postinit","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    user root","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    group root","init.rc",NULL);
+    call_busybox("sed","-i","/service console/ i\\\n    oneshot\\\n\\\n","init.rc",NULL);
+  }
 }

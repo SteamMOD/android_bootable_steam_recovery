@@ -24,6 +24,7 @@
 #define ABS_MT_WIDTH_MAJOR  0x32  /* Major axis of approaching ellipse */
 #define ABS_MT_POSITION_X 0x35  /* Center X ellipse position */
 #define ABS_MT_POSITION_Y 0x36  /* Center Y ellipse position */
+#define ABS_MT_TRACKING_ID 0x39  /* Center Y ellipse position */
 #endif
 
 #include <pthread.h>
@@ -844,7 +845,7 @@ static void *input_thread(void *cookie)
                     // TOUCH_MOVE, TOUCH_DOWN and TOUCH_UP in this order
                     int type = BTN_WHEEL;
                     // new and old pressure state are not consistent --> we have touch down or up event
-                    if (mousePos[actPos.num].pressure != actPos.pressure) {
+                    if ((mousePos[actPos.num].pressure!=0) != (actPos.pressure!=0)) {
                       if (actPos.pressure == 0) {
                         type = BTN_GEAR_UP;
                         if (actPos.num==0) {
@@ -854,7 +855,7 @@ static void *input_thread(void *cookie)
                           }
                           memset(&grabPos,0,sizeof(grabPos));
                         }
-                      } else if (actPos.pressure == 40) {
+                      } else if (actPos.pressure != 0) {
                         type == BTN_GEAR_DOWN;
                         if (actPos.num==0) {
                           grabPos = actPos;
@@ -889,15 +890,21 @@ static void *input_thread(void *cookie)
             } else if (ev.type == EV_ABS) {
               // multitouch records are sent as ABS events. Well at least on the SGS-i9000
               if (ev.code == ABS_MT_POSITION_X) {
-                actPos.x = ev.value;
+                actPos.x = MT_X(ev.value);
               } else if (ev.code == ABS_MT_POSITION_Y) {
-                actPos.y = ev.value;
+                actPos.y = MT_Y(ev.value);
               } else if (ev.code == ABS_MT_TOUCH_MAJOR) {
                 actPos.pressure = ev.value; // on SGS-i9000 this is 0 for not-pressed and 40 for pressed
               } else if (ev.code == ABS_MT_WIDTH_MAJOR) {
                 // num is stored inside the high byte of width. Well at least on SGS-i9000
-                actPos.num = ev.value >> 8;
+                if (actPos.num==0) {
+                  // only update if it was not already set. On a normal device MT_TRACKING_ID is sent
+                  actPos.num = ev.value >> 8;
+                }
                 actPos.size = ev.value & 0xFF;
+              } else if (ev.code == ABS_MT_TRACKING_ID) {
+                // on a normal device, the num is got from this value
+                actPos.num = ev.value;
               }
             } else if (ev.type == EV_REL) {
                 // accumulate the up or down motion reported by

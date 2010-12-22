@@ -91,6 +91,7 @@
 #define TYPE_EXT2 2
 #define TYPE_EXT4 4
 #define TYPE_JFS 8
+#define TYPE_DIRECTORY 64
 
 #define TYPE_FSTYPE_MASK 127
 

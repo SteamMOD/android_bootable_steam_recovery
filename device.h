@@ -20,8 +20,10 @@
 
 #include "roots.h"
 
+#ifdef DEVICE_NS_ON_SGS
+#include "device/ns-on-sgs-i9000.h"
+#else
 #include "device/sgs-i9000.h"
-
 #endif
 
 extern const char g_mtd_device[];
@@ -30,6 +32,8 @@ extern const char g_raw[];
 extern const char g_package_file[];
 extern const char g_auto[];
 extern RootInfo g_roots[];
+
+void fix_init(int isrecovery);
 
 // Called when recovery starts up.  Returns 0.
 extern int device_recovery_start();
@@ -99,3 +103,4 @@ extern char* MENU_HEADERS[];
 // Text of menu items.
 extern char* MENU_ITEMS[];
 
+#endif

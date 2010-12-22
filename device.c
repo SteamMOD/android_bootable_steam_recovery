@@ -21,6 +21,7 @@
 #include "device.h"
 #include "locale.h"
 #include "roots.h"
+#include "../steam_main/steam.h"
 
 char* MENU_HEADERS[] = { NULL };
 
@@ -40,7 +41,11 @@ const char g_raw[] = "@\0g_raw";
 const char g_package_file[] = "@\0g_package_file";
 const char g_auto[] = "@\0g_auto";
 
+#ifdef DEVICE_NS_ON_SGS
+#include "device/ns-on-sgs-i9000.c"
+#else
 #include "device/sgs-i9000.c"
+#endif
 
 int get_num_roots() {
   return NUM_ROOTS;
@@ -73,8 +78,6 @@ int device_handle_key(int key_code, int visible) {
                 return SELECT_ITEM_MOUSE;
             case KEY_DEVICE_BACK:
                 return GO_BACK;
-            case KEY_DEVICE_MENU:
-                break;
         }
     }
 

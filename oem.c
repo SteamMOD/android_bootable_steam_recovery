@@ -248,9 +248,11 @@ int do_steam_install()
   if (ensure_root_path_mounted("SYSTEM:")) {
     return 0;
   }
+#ifdef HAS_DATADATA
   if (ensure_root_path_mounted("DATADATA:")) {
     return 0;
   }
+#endif
   if (ensure_root_path_mounted("SDCARD:")) {
     return 0;
   }

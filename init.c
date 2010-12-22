@@ -63,6 +63,10 @@ int steam_postinit_main(int argc, char* argv[]) {
   // remount / as it was set to read-only in init
   call_busybox("mount","-o","remount,rw","/",NULL);
 
+  int startanim = 1;
+  if (get_conf("init.bootanim",value) && strcmp(value,"0")==0) startanim=0;
+  if (get_conf("init.bootanim",value) && strcmp(value,"2")==0) startanim=2;
+
   if (strcmp(get_conf_def("tweaks.iosched",value,"0"),"1")==0) {
     // tweak cfq io scheduler
     printf(TWEAKS_ENABLE_IOSCHED);
@@ -174,16 +178,16 @@ int steam_postinit_main(int argc, char* argv[]) {
   // remount ro
   call_busybox("mount","-o","remount,ro","/",NULL);
   if (strcmp(get_conf_def("fs.system.ro",value,"1"),"1")==0) {
-    call_busybox("mount","-o","remount,ro","/dev/block/stl9","/system",NULL);
+    // efs hiding needs rw rights
+    if (strcmp(get_conf_def("fs.system.efs",value,"0"),"0")==0) {
+      call_busybox("mount","-o","remount,ro","/dev/block/stl9","/system",NULL);
+    }
   }
 
   // signal earlyinit that logo playing will start soon
   // so it can disable the display engine if needed
   property_set("dev.defaultclassstarted","1");
 
-  int startanim = 1;
-  if (get_conf("init.bootanim",value) && strcmp(value,"0")==0) startanim=0;
-  if (get_conf("init.bootanim",value) && strcmp(value,"2")==0) startanim=2;
   if (startanim==1) {
     char* argp[] = {"playlogos1",NULL};
     property_set("ctl.stop","bootanim");
@@ -251,6 +255,11 @@ int steam_earlyinit_main(int argc, char* argv[]) {
         printf(EARLY_POSTINITSTART);
         if (!noscreen && shutdownscreen) {
           if (get_ui_state()) ui_done();
+        }
+        if (!shutdownscreen) {
+          call_busybox("killall","-9","playlogos1",NULL);
+          call_busybox("killall","-9","bootanim",NULL);
+          call_busybox("killall","-9","bootanimation",NULL);
         }
       }
       donepinit = true;
@@ -415,6 +424,7 @@ int convert_filesystems(int oldcache,int newcache,int olddata, int newdata, int 
       sprintf(value,"%d",newdata);
       set_conf("fs.data.type",value);
     }
+#ifdef HAS_DATADATA
     if (newdbdata && (olddbdata!=newdbdata)) {
       unmount_filesystem("/dbdata");
       filesystem_format(newdbdata,DBDATA_BLOCK_NAME,"loop3","dbdata",secret);
@@ -422,6 +432,7 @@ int convert_filesystems(int oldcache,int newcache,int olddata, int newdata, int 
       sprintf(value,"%d",newdbdata);
       set_conf("fs.dbdata.type",value);
     }
+#endif
     call_busybox("mount",NULL);
     if (chosen_item==0 || chosen_item==2) {
       nandroid_restore(tmp,0,0,1,1,0);
@@ -560,6 +571,7 @@ int steam_init_main(int argc, char* argv[]) {
   call_busybox("mknod","/dev/input/event1","c","13","65",NULL);
   call_busybox("mknod","/dev/input/event2","c","13","66",NULL);
   call_busybox("mknod","/dev/input/event3","c","13","67",NULL);
+  call_busybox("mknod","/dev/input/event4","c","13","68",NULL);
   call_busybox("mknod","/dev/input/mice","c","13","63",NULL);
   call_busybox("mknod","/dev/input/mouse0","c","13","32",NULL);
 
@@ -585,6 +597,7 @@ int steam_init_main(int argc, char* argv[]) {
     ui_set_page(TEXTCONTAINER_STDOUT);
     ui_show_progress(1,0);
   }
+  if (isrecovery) printf("\n\nRECOVERY MODE\n\n");
   // creating crsymlinks
   char** command = steam_command_list;
   while (*command) {
@@ -599,15 +612,23 @@ int steam_init_main(int argc, char* argv[]) {
   printf(INIT_CREATE_MOUNT);
   autoload_modules();
   call_busybox("mkdir","/cache",NULL);
+#ifdef HAS_DATADATA
   call_busybox("mkdir","/dbdata",NULL);
+#endif
   call_busybox("mkdir","/data",NULL);
   call_busybox("mkdir","/system",NULL);
   if (usegraphics) ui_set_progress(0.3);
 
   // STAGE 3: Do everything to get /system mounted
   printf(INIT_STAGE,3);
-  // we don't know much about /system, as the config file is stored there
-  int system_type = filesystem_check(SYSTEM_BLOCK_NAME);
+  // we don't know much about /system, as the config file is stored there4
+  int system_type = 0;
+  int count = 0;
+  while (system_type==0 && count<20) {
+    system_type = filesystem_check(MAIN_BLOCK_NAME);
+    sleep(1);
+    count++;
+  }
   if (system_type&TYPE_RFS_BAD) {
     // inconsistent rfs state, asking user to fix it
     if (!usegraphics) { ui_init(); ui_set_page(TEXTCONTAINER_STDOUT); }
@@ -620,16 +641,19 @@ int steam_init_main(int argc, char* argv[]) {
     if (chosen_item==0) {
       convert_system(TYPE_RFS|TYPE_RFS_BAD,TYPE_RFS);
     } else if (chosen_item==1) {
-      call_busybox("mount","-t","rfs","-o",TYPE_RFS_BAD_DEFAULT_MOUNT,SYSTEM_BLOCK_NAME,"/system",NULL);
+      call_busybox("mount","-t","rfs","-o",TYPE_RFS_BAD_DEFAULT_MOUNT,MAIN_BLOCK_NAME,MAIN_BLOCK_MTP,NULL);
     } else if (chosen_item==2) {
-      call_busybox("mount","-t","rfs","-o",TYPE_RFS_DEFAULT_MOUNT,SYSTEM_BLOCK_NAME,"/system",NULL);
+      call_busybox("mount","-t","rfs","-o",TYPE_RFS_DEFAULT_MOUNT,MAIN_BLOCK_NAME,MAIN_BLOCK_MTP,NULL);
     }
     if (!usegraphics) ui_done();
   } else {
-    check_and_mount(system_type,SYSTEM_BLOCK_NAME,"loop4","system",NULL);
+    check_and_mount(system_type,MAIN_BLOCK_NAME,"loop4",MAIN_BLOCK_LABEL,NULL);
+  }
+  if (strcmp(MAIN_BLOCK_NAME,SYSTEM_BLOCK_NAME)) {
+    // we need to mount system if it's not the main partition
+    system_type = mount_from_config_or_autodetect("fs.system.type",SYSTEM_BLOCK_NAME,"loop4","system",NULL);
   }
   // system is now mounted/fixed
-
   call_busybox("rm","/system/bin/fat.format",NULL);
   call_busybox("ln","-s","/system/etc/","/etc",NULL);
   call_busybox("cp","/res/misc/mke2fs.conf","/etc",NULL);
@@ -706,7 +730,6 @@ int steam_init_main(int argc, char* argv[]) {
     }
   }
 
-
   // save the system type
   sprintf(value,"%d",system_type);
   set_conf("fs.system.type",value);
@@ -770,7 +793,11 @@ int steam_init_main(int argc, char* argv[]) {
   ui_set_progress(0.7);
   int data_type = mount_from_config_or_autodetect("fs.data.type",DATA_BLOCK_NAME,"loop2","data",secret);
   ui_set_progress(0.8);
+#ifdef HAS_DATADATA
   int dbdata_type = mount_from_config_or_autodetect("fs.dbdata.type",DBDATA_BLOCK_NAME,"loop3","dbdata",secret);
+#else
+  int dbdata_type = 0;
+#endif
   ui_set_progress(0.9);
   // STAGE 7: convert filesystems
   printf(INIT_STAGE,7);
@@ -780,13 +807,19 @@ int steam_init_main(int argc, char* argv[]) {
   int newdbdata = 0;
   if (get_conf("fs.cache.convertto",value) && sscanf(value,"%d",&newcache)==1) {} else newcache=0;
   if (get_conf("fs.data.convertto",value) && sscanf(value,"%d",&newdata)==1) {} else newdata=0;
+#ifdef HAS_DATADATA
   if (get_conf("fs.dbdata.convertto",value) && sscanf(value,"%d",&newdbdata)==1) {} else newdbdata=0;
+#endif
   set_conf("fs.cache.convertto",NULL);
   set_conf("fs.data.convertto",NULL);
+#ifdef HAS_DATADATA
   set_conf("fs.dbdata.convertto",NULL);
+#endif
   if (newcache==cache_type) newcache=0;
   if (newdata==data_type) newdata=0;
+#ifdef HAS_DATADATA
   if (newdbdata==data_type) newdbdata=0;
+#endif
   if (newcache || newdata || newdbdata) {
     // at least one filesystem needs reformatting
     if (!usegraphics) ui_init();
@@ -799,29 +832,8 @@ int steam_init_main(int argc, char* argv[]) {
   printf(INIT_STAGE,8);
   ui_set_progress(1.0);
 
-  // TODO: This is designed for an unmodified initramfs, and might break if it's already modified
-  call_busybox("sed","-i","/export TMPDIR/ a\\\n    class_start earlyinitclass","init.rc",NULL);
-  call_busybox("sed","-i","s/mount rfs/#mount rfs/","init.rc",NULL);
-  call_busybox("sed","-i","s|/system/bin/playlogos1|/sbin/steam postinit|g","init.rc",NULL);
-
-  if (get_conf("init.bootanim",value) && strcmp(value,"2")==0) {
-    call_busybox("sed","-i","/service playlogos1/ i\\\nservice bootanim /system/bin/bootanimation","init.rc",NULL);
-    call_busybox("sed","-i","/service playlogos1/ i\\\n    user graphics","init.rc",NULL);
-    call_busybox("sed","-i","/service playlogos1/ i\\\n    group graphics","init.rc",NULL);
-    call_busybox("sed","-i","/service playlogos1/ i\\\n    oneshot","init.rc",NULL);
-    call_busybox("sed","-i","/service playlogos1/ i\\\n    disabled","init.rc",NULL);
-    call_busybox("sed","-i","/service playlogos1/ i\\\n    class nostart\\\n\\\n","init.rc",NULL);
-  }
-  call_busybox("sed","-i","/service playlogos1/ i\\\nservice earlyinit /sbin/steam earlyinit","init.rc",NULL);
-  call_busybox("sed","-i","/service playlogos1/ i\\\n    user root","init.rc",NULL);
-  call_busybox("sed","-i","/service playlogos1/ i\\\n    group root","init.rc",NULL);
-  call_busybox("sed","-i","/service playlogos1/ i\\\n    oneshot","init.rc",NULL);
-  call_busybox("sed","-i","/service playlogos1/ i\\\n    class earlyinitclass\\\n\\\n","init.rc",NULL);
-
-  call_busybox("sed","-i","s|mount tmpfs nodev /tmp||","recovery.rc",NULL);
-  call_busybox("sed","-i","s/mount rfs/#mount rfs/","recovery.rc",NULL);
-  call_busybox("sed","-i","s|/sbin/adbd recovery|/sbin/adbd|","recovery.rc",NULL);
-  call_busybox("sed","-i","s|/system/bin/recovery|/sbin/recovery|","recovery.rc",NULL);
+  // this is device specific
+  fix_init(isrecovery);
 
   //TODO: if we're on a modified initramfs, these settings won't turn the properties off!
   if (strcmp(get_conf_def("adb.root",value,"0"),"0")) {
@@ -842,7 +854,15 @@ int steam_init_main(int argc, char* argv[]) {
   if (usegraphics) ui_done();
   // parent will continue, and load up init
   char* argp[] = {"init",NULL};
-  execve("/init.samsung",argp,environ);
-  // should never happen
+  execve("/init.original",argp,environ);
+
+
+  // should never happen!
+  ui_init();
+  ui_print("This shouldn't happen!\n");
+  while (true) {
+    file_manager();
+  }
+  ui_done();
   return 1;
 }

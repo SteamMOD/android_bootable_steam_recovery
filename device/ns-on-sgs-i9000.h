@@ -1,14 +1,12 @@
-
-#define EFS_BLOCK_NAME "/dev/block/stl3"
-#define CACHE_BLOCK_NAME "/dev/block/stl11"
-#define DATA_BLOCK_NAME "/dev/block/mmcblk0p2"
-#define SYSTEM_BLOCK_NAME "/dev/block/stl9"
-#define DBDATA_BLOCK_NAME "/dev/block/stl10"
+#define EFS_BLOCK_NAME "/res/.fake/gingerbread/efs"
+#define CACHE_BLOCK_NAME "/res/.fake/gingerbread/cache"
+#define DATA_BLOCK_NAME "/res/.fake/gingerbread/data"
+#define SYSTEM_BLOCK_NAME "/res/.fake/gingerbread/system"
 
 // the partition that needs to be mounted first
-#define MAIN_BLOCK_NAME SYSTEM_BLOCK_NAME
-#define MAIN_BLOCK_MTP "/system"
-#define MAIN_BLOCK_LABEL "system"
+#define MAIN_BLOCK_NAME "/dev/block/mmcblk0p2"
+#define MAIN_BLOCK_MTP "/res/.fake"
+#define MAIN_BLOCK_LABEL "res/.fake"
 
 #define SDCARD_BLOCK_NAME "/dev/block/mmcblk0p1"
 #define SDCARD2_BLOCK_NAME "/dev/block/mmcblk1p1"
@@ -38,8 +36,8 @@ extern string mmcs[MMC_COUNT][3];
 #define SDCARD_LUN_CONTENT SDCARD_BLOCK_NAME
 #define SDCARD2_LUN_CONTENT SDCARD2_BLOCK_NAME
 
-#ifndef HAS_DATADATA
-#define HAS_DATADATA 1
+#ifdef HAS_DATADATA
+#undef HAS_DATADATA
 #endif
 
 #ifndef BOARD_HAS_PHONE_CONTROLLER
@@ -58,13 +56,13 @@ extern string mmcs[MMC_COUNT][3];
 #define BOARD_HAS_SMALL_RECOVERY 1
 #endif
 
-#define KEY_DEVICE_VOLUP   KEY_CAPSLOCK
-#define KEY_DEVICE_VOLDOWN KEY_LEFTSHIFT
-#define KEY_DEVICE_POWER   KEY_LEFTBRACE
-#define KEY_DEVICE_HOME    KEY_M
-#define KEY_DEVICE_BACK    KEY_ENTER
-#define KEY_DEVICE_MENU    KEY_BACK
+#define KEY_DEVICE_VOLUP   KEY_VOLUMEDOWN
+#define KEY_DEVICE_VOLDOWN KEY_VOLUMEUP
+#define KEY_DEVICE_POWER   KEY_POWER
+#define KEY_DEVICE_HOME    KEY_MENU
+#define KEY_DEVICE_BACK    KEY_HOME
+#define KEY_DEVICE_MENU    KEY_MENU
 #define KEY_DEVICE_SEARCH  -1
 
-#define MT_X(x) (x)
-#define MT_Y(y) (y)
+#define MT_X(x) (x*480/1024)
+#define MT_Y(y) (y*800/1024)

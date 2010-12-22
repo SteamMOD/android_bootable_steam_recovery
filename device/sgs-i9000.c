@@ -58,6 +58,8 @@ string mmcs[MMC_COUNT][3] = {
 
 void fix_init(int isrecovery)
 {
+  char value[VALUE_MAX_LENGTH];
+
 // TODO: This is designed for an unmodified initramfs, and might break if it's already modified
   call_busybox("sed","-i","/export TMPDIR/ a\\\n    class_start earlyinitclass","init.rc",NULL);
   call_busybox("sed","-i","s/mount rfs/#mount rfs/","init.rc",NULL);

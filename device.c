@@ -21,6 +21,7 @@
 #include "device.h"
 #include "locale.h"
 #include "roots.h"
+#include "config.h"
 #include "../steam_main/steam.h"
 
 char* MENU_HEADERS[] = { NULL };
